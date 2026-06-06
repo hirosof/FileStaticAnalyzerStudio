@@ -812,3 +812,6 @@ FodyWeavers.xsd
 
 # DBファイルを除外する
 *.db
+
+# backendのdataフォルダを除外する
+backend/data/
