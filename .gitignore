@@ -808,3 +808,7 @@ FodyWeavers.xsd
 
 # Built Visual Studio Code Extensions
 *.vsix
+
+
+# DBファイルを除外する
+*.db
