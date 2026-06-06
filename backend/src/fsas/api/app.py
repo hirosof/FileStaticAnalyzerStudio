@@ -40,8 +40,8 @@ async def submit(file: UploadFile, db: Session = Depends(get_db)):
     return {"request_reception_id": reception_id, "request_item_id": item_id}
 
 
-@app.get("/items/{request_item_id}", response_model=ItemStatusOut)
-def get_item(request_item_id: str, db: Session = Depends(get_db)):
+
+def _get_item_or_404(db: Session, request_item_id: str) -> AnalysisRequestItem:
     item = db.scalar(
         select(AnalysisRequestItem).where(
             AnalysisRequestItem.request_item_id == request_item_id
@@ -49,6 +49,12 @@ def get_item(request_item_id: str, db: Session = Depends(get_db)):
     )
     if item is None:
         raise HTTPException(status_code=404, detail="item not found")
+    return item
+
+
+@app.get("/items/{request_item_id}", response_model=ItemStatusOut)
+def get_item(request_item_id: str, db: Session = Depends(get_db)):
+    item = _get_item_or_404(db, request_item_id)
 
     specimen = None
     if item.sha256:
@@ -72,6 +78,7 @@ def get_item(request_item_id: str, db: Session = Depends(get_db)):
 
 @app.get("/items/{request_item_id}/events", response_model=list[EventOut])
 def get_item_events(request_item_id: str, db: Session = Depends(get_db)):
+    _get_item_or_404(db, request_item_id)  # 存在しなければ 404（/items と整合）
     events = db.scalars(
         select(JobEvent)
         .where(JobEvent.request_item_id == request_item_id)
