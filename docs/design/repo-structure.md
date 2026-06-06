@@ -16,8 +16,10 @@ FileStaticAnalyzerStudio/
 │  │  ├─ models/                      #     SQLAlchemy モデル
 │  │  ├─ db/                          #     engine/session、Alembic 連携
 │  │  ├─ storage/                     #     検体ストレージ抽象IF（ステージング／内容アドレス）
-│  │  ├─ api/                         #     FastAPI アプリ（受付）   ← uvicorn で起動
-│  │  ├─ worker/                      #     解析ワーカー            ← python -m fsas.worker で起動
+│  │  ├─ queue.py                     #     Valkey 接続・STREAM/GROUP・enqueue
+│  │  ├─ api/                         #     FastAPI アプリ（受付）         ← uvicorn fsas.api.app:app
+│  │  ├─ dispatcher/                  #     常駐ディスパッチャ(supervisor)  ← python -m fsas.dispatcher.entry
+│  │  ├─ processor/                   #     1ジョブ=1サブプロセスの実処理    ← python -m fsas.processor.entry
 │  │  └─ analyzers/                   #     解析器（PE→LNK→Office…）後で増える
 │  ├─ alembic/                        #   マイグレーション
 │  ├─ alembic.ini
@@ -34,7 +36,7 @@ FileStaticAnalyzerStudio/
 | パス | 役割 | 追加時期 |
 |---|---|---|
 | `docs/` | VitePress 文書サイト＋設計ドキュメント | 作成済み |
-| `backend/` | Python の受付 API と解析ワーカー（同一コードベース、起動2系統） | Phase 0 |
+| `backend/` | 受付 API・ディスパッチャ・プロセッサ（同一コードベース、起動3系統） | Phase 0 |
 | `frontend/` | Vue SPA | Phase 0（当面は `/docs` で代用可） |
 | `services/reception-node/` | Fastify(Node) 受付（言語非依存の実証） | Phase 2 |
 | `infra/` | compose 等のインフラ定義 | Phase 0.5 |
@@ -42,9 +44,13 @@ FileStaticAnalyzerStudio/
 
 ## backend の方針
 
-- **単一 poetry プロジェクト**。受付 API と解析ワーカーは `contracts` / `models` を共有するため
-  コードベースは 1 つにまとめ、**起動プロセスを 2 つ**（uvicorn / worker）にする。
+- **単一 poetry プロジェクト**。受付 API・ディスパッチャ・プロセッサは `contracts` / `models` を共有するため
+  コードベースは 1 つにまとめ、**3 系統で起動**する：
+  受付（`uvicorn fsas.api.app:app`）／ディスパッチャ（`python -m fsas.dispatcher.entry`）／
+  プロセッサ（ディスパッチャが 1 ジョブごとに `python -m fsas.processor.entry --request_item_id ...` を起動）。
   デプロイ時は別コンテナでもソースは共有。
+- **ディスパッチャ＝supervisor／プロセッサ＝使い捨て子プロセス**。1 ジョブ＝1 プロセスにすることで、
+  細工ファイルでパーサが segfault してもプロセッサ 1 個が死ぬだけ（ディスパッチャは生存し、Item を Error 化）。
 - **src レイアウト＋ `package-mode=true`**（import 可能な正式パッケージ）。
 - **解析ライブラリの依存分離**（poetry の optional group 等）は **Phase 0.5（コンテナ化）で検討**。
   分離は可逆な設定なので、必要になってから「追加」で対応する。
