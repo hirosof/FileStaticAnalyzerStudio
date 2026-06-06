@@ -83,7 +83,7 @@ def process(request_item_id: str):
             db.rollback()
             item = db.scalar(
                 select(AnalysisRequestItem).where(
-                    AnalysisRequestItem.request_item_id == job.request_item_id
+                    AnalysisRequestItem.request_item_id == request_item_id
                 )
             )
             if item is not None:
@@ -95,6 +95,7 @@ def process(request_item_id: str):
                 log_event(db, item.request_item_id, f"エラー: {e}", level="error")
 
 def entry() -> None:
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--request_item_id")
 
