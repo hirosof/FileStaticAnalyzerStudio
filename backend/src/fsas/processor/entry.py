@@ -9,7 +9,7 @@ from fsas.db.engine import SessionLocal
 from fsas.models import AnalysisRequestItem, JobEvent, SpecimenInformation
 from fsas.storage import storage
 
-
+import sys
 import argparse
 
 def _now() -> datetime:
@@ -100,6 +100,8 @@ def entry() -> None:
     parser.add_argument("--request_item_id")
 
     args = parser.parse_args()
+
+#    print(args.request_item_id)
 
     if (args.request_item_id is not None) and (len(args.request_item_id)>0):
         process(request_item_id=args.request_item_id)

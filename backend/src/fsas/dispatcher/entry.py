@@ -41,9 +41,16 @@ def _mark_error(request_item_id: str, message: str) -> None:
 
 def processor_execute(job: AnalysisJob, msg_id: Any) -> None:
     try:
+
+        cmdline_items = [sys.executable, 
+                         "-m", 
+                         "fsas.processor.entry",
+                         f"--request_item_id={job.request_item_id}"]
+
+        print("[dispatcher] Call to {0}".format(subprocess.list2cmdline(cmdline_items)))
+
         proc = subprocess.run(
-            [sys.executable, "-m", "fsas.processor.entry",
-             "--request_item_id", job.request_item_id],
+           cmdline_items,
             capture_output=True, text=True, timeout=PROCESSOR_TIMEOUT,
         )
         if proc.returncode != 0:
@@ -59,7 +66,7 @@ def processor_execute(job: AnalysisJob, msg_id: Any) -> None:
 
 def entry() -> None:
     ensure_group()
-    print(f"[worker] {CONSUMER} waiting on {STREAM} (Ctrl+C to stop)")
+    print(f"[dispatcher] {CONSUMER} waiting on {STREAM} (Ctrl+C to stop)")
     try:
         while True:
             resp = client.xreadgroup(GROUP, CONSUMER, {STREAM: ">"}, count=1, block=5000)
@@ -69,7 +76,7 @@ def entry() -> None:
                 for msg_id, fields in messages:
                     processor_execute(AnalysisJob.from_payload(fields["payload"]) , msg_id)
     except KeyboardInterrupt:
-        print("[worker] shutting down...")
+        print("[dispatcher] shutting down...")
 
 
 if __name__ == "__main__":
