@@ -10,7 +10,7 @@ class AnalysisRequest(Base):
     __tablename__ = "analysis_requests"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    request_reception_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    request_reception_id: Mapped[str] = mapped_column(String(32), unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

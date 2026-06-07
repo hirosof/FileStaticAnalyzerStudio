@@ -1,0 +1,26 @@
+[storage]
+data_dir = "data"
+specimen_dir_name = "specimens"
+staging_dir_name = "staging"
+cas_dir_name = "cas"
+
+[database]
+type = "postgresql"           # ← compose では Postgres
+
+[database.sqlite]
+file_name = "fsas.db"
+
+[database.postgresql]
+host = "postgres"             # ← サービス名で名前解決
+port = 5432
+db = "fsas"
+# user / password は env（FSAS_DB_USER / FSAS_DB_PASSWORD）
+
+[valkey]
+host = "valkey"              # ← サービス名
+port = 6379
+stream = "fsas:jobs"
+group = "fsas-workers"
+
+[processor]
+timeout_seconds = 300

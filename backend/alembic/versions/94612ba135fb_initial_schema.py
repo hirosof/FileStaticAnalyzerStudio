@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 6ad6bf8842c8
+Revision ID: 94612ba135fb
 Revises: 
-Create Date: 2026-06-07 03:20:02.206532
+Create Date: 2026-06-08 02:22:09.131131
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '6ad6bf8842c8'
+revision: str = '94612ba135fb'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,11 +25,9 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('request_reception_id', sa.String(length=32), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('request_reception_id')
     )
-    with op.batch_alter_table('analysis_requests', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_analysis_requests_request_reception_id'), ['request_reception_id'], unique=True)
-
     op.create_table('specimen_informations',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('sha256', sa.String(length=64), nullable=False),
@@ -37,11 +35,9 @@ def upgrade() -> None:
     sa.Column('analysis_state', sa.String(length=16), nullable=False),
     sa.Column('file_type', sa.String(length=16), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('sha256')
     )
-    with op.batch_alter_table('specimen_informations', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_specimen_informations_sha256'), ['sha256'], unique=True)
-
     op.create_table('analysis_request_items',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('request_item_id', sa.String(length=32), nullable=False),
@@ -62,11 +58,11 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['parent_request_item_id'], ['analysis_request_items.request_item_id'], ),
     sa.ForeignKeyConstraint(['request_reception_id'], ['analysis_requests.request_reception_id'], ),
     sa.ForeignKeyConstraint(['sha256'], ['specimen_informations.sha256'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('request_item_id')
     )
     with op.batch_alter_table('analysis_request_items', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_analysis_request_items_process_state'), ['process_state'], unique=False)
-        batch_op.create_index(batch_op.f('ix_analysis_request_items_request_item_id'), ['request_item_id'], unique=True)
         batch_op.create_index(batch_op.f('ix_analysis_request_items_request_reception_id'), ['request_reception_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_analysis_request_items_sha256'), ['sha256'], unique=False)
 
@@ -96,16 +92,9 @@ def downgrade() -> None:
     with op.batch_alter_table('analysis_request_items', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_analysis_request_items_sha256'))
         batch_op.drop_index(batch_op.f('ix_analysis_request_items_request_reception_id'))
-        batch_op.drop_index(batch_op.f('ix_analysis_request_items_request_item_id'))
         batch_op.drop_index(batch_op.f('ix_analysis_request_items_process_state'))
 
     op.drop_table('analysis_request_items')
-    with op.batch_alter_table('specimen_informations', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_specimen_informations_sha256'))
-
     op.drop_table('specimen_informations')
-    with op.batch_alter_table('analysis_requests', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_analysis_requests_request_reception_id'))
-
     op.drop_table('analysis_requests')
     # ### end Alembic commands ###

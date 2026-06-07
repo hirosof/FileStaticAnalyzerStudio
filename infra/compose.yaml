@@ -1,0 +1,63 @@
+# 共通の backend 設定（build/image/env）を1か所に（YAML アンカー）
+x-backend: &backend
+  build:
+    context: ../backend
+  image: fsas-backend
+  environment: &backend-env
+    FSAS_CONFIG_FILE: config.docker.toml      # compose 用 TOML を選択
+    FSAS_DB_USER: ${FSAS_DB_USER}             # 秘密は .env から注入
+    FSAS_DB_PASSWORD: ${FSAS_DB_PASSWORD}
+
+services:
+  valkey:
+    image: docker.io/valkey/valkey:latest
+    # 開発用途のためジョブは揮発でOK（永続化なし）
+
+  postgres:
+    image: docker.io/library/postgres:17
+    environment:
+      POSTGRES_USER: ${FSAS_DB_USER}
+      POSTGRES_PASSWORD: ${FSAS_DB_PASSWORD}
+      POSTGRES_DB: fsas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:                              # 準備完了まで migrate を待たせる
+      test: ["CMD-SHELL", "pg_isready -U ${FSAS_DB_USER} -d fsas"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:                                    # 1回限り：alembic upgrade head して終了
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "fsas.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - specimens:/app/data                   # 検体 blob を dispatcher と共有
+    depends_on:
+      valkey:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+
+  dispatcher:
+    <<: *backend
+    command: ["python", "-m", "fsas.dispatcher.entry"]
+    volumes:
+      - specimens:/app/data                   # api と同じ blob ボリューム
+    depends_on:
+      valkey:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:        # Postgres の永続データ
+  specimens:     # 検体ストレージ（staging/cas）。api と dispatcher で共有

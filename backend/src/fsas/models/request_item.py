@@ -10,7 +10,7 @@ class AnalysisRequestItem(Base):
     __tablename__ = "analysis_request_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    request_item_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)  # 公開ID/ジョブに載る
+    request_item_id: Mapped[str] = mapped_column(String(32), unique=True)  # 公開ID/ジョブに載る
     request_reception_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("analysis_requests.request_reception_id"), index=True
     )
