@@ -1,16 +1,12 @@
-import os
-
 import valkey
 
+from fsas.config_store import config
 from fsas.contracts import AnalysisJob
 
-VALKEY_HOST = os.environ.get("FSAS_VALKEY_HOST", "localhost")
-VALKEY_PORT = int(os.environ.get("FSAS_VALKEY_PORT", "6379"))
+STREAM = config.stream
+GROUP = config.group
 
-STREAM = "fsas:jobs"
-GROUP = "fsas-workers"
-
-client = valkey.Valkey(host=VALKEY_HOST, port=VALKEY_PORT, decode_responses=True)
+client = valkey.Valkey(host=config.valkey_host, port=config.valkey_port, decode_responses=True)
 
 
 def enqueue(job: AnalysisJob) -> str:

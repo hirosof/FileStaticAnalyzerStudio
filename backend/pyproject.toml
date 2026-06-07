@@ -14,7 +14,8 @@ dependencies = [
     "valkey (>=6.1.1,<7.0.0)",
     "sqlalchemy (>=2.0.50,<3.0.0)",
     "alembic (>=1.18.4,<2.0.0)",
-    "nanoid (>=2.0.0,<3.0.0)"
+    "nanoid (>=2.0.0,<3.0.0)",
+    "psycopg[binary] (>=3.3.4,<4.0.0)",
 ]
 
 [tool.poetry]

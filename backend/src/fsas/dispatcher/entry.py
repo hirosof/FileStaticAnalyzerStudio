@@ -9,9 +9,11 @@ from fsas.contracts import AnalysisJob
 from fsas.db.engine import SessionLocal
 from fsas.models import AnalysisRequestItem, JobEvent
 from fsas.queue import client, STREAM, GROUP
+from fsas.config_store import config
 
 CONSUMER = "fsas-be-dispatcher"
-PROCESSOR_TIMEOUT = 300  # 秒（暫定）
+
+PROCESSOR_TIMEOUT = config.processor_timeout
 
 
 def ensure_group() -> None:

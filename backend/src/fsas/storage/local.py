@@ -1,17 +1,17 @@
-import os
 import shutil
 from pathlib import Path
 from typing import BinaryIO
 
+from fsas.config_store import config
 from fsas.storage.base import Storage
 
 
 class LocalFileStorage(Storage):
     def __init__(self, base_dir: Path | None = None) -> None:
-        # 保存先は環境変数で差し替え可（既定: ./data）
-        self.base_dir = base_dir or Path(os.environ.get("FSAS_STORAGE_DIR", "data"))
-        self.staging_dir = self.base_dir / "staging"
-        self.cas_dir = self.base_dir / "cas"
+        self.base_dir = base_dir or config.data_dir
+        specimen_root = self.base_dir / config.specimen_dir_name
+        self.staging_dir = specimen_root / config.staging_dir_name
+        self.cas_dir = specimen_root / config.cas_dir_name
 
     def staged_path(self, request_item_id: str) -> Path:
         return self.staging_dir / request_item_id

@@ -815,3 +815,6 @@ FodyWeavers.xsd
 
 # backendのdataフォルダを除外する
 backend/data/
+
+# tempフォルダを除外
+temp/

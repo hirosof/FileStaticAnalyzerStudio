@@ -1,0 +1,26 @@
+[storage]
+data_dir = "data"
+specimen_dir_name = "specimens"   # 検体バイトの親
+staging_dir_name = "staging"
+cas_dir_name = "cas"
+
+[database]
+type = "sqlite"            # "sqlite" | "postgresql"
+
+[database.sqlite]
+file_name = "fsas.db"
+
+[database.postgresql]
+host = "localhost"
+port = 5432
+db = "fsas"
+# user , password は書かない（クレデンシャル）→ 環境変数 FSAS_DB_USER , FSAS_DB_PASSWORD
+
+[valkey]
+host = "localhost"
+port = 6379
+stream = "fsas:jobs"
+group = "fsas-workers"
+
+[processor]
+timeout_seconds = 300
