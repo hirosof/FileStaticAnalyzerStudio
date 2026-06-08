@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import FileUpload from 'primevue/fileupload'
+import FileUpload, { type FileUploadUploaderEvent } from 'primevue/fileupload'
 import Tag from 'primevue/tag'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -30,10 +30,11 @@ function severityOf(state: string): string {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // PrimeVue FileUpload (customUpload) のアップロードイベント
-async function onUpload(event: { files: File[] }) {
-  const file = event.files?.[0]
+async function onUpload(event: FileUploadUploaderEvent) {
+  const file = Array.isArray(event.files) ? event.files[0] : event.files
   if (!file) return
 
+  // 以下は従来どおり（errorMsg/status/events リセット → submitFile → ポーリング …）
   errorMsg.value = ''
   status.value = null
   events.value = []

@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:8000'
+const BASE = '/api'
 
 export interface SpecimenOut {
   sha256: string
