@@ -50,9 +50,33 @@ Web アプリ。マルウェア解析・トリアージ用途を意識した「�
 
 ### プロセッサ（使い捨て子プロセス）
 - `--request_item_id` を受け、ステージングから検体読込 → **SHA256 算出** → **内容アドレス(SHA256)へ昇格** →
-  **重複排除** → **種別判定** → **解析** → 指標算出 → 結果・イベント・状態を DB へ → 終了。
+  **重複排除** → **種別判定（Basic 層）** → **解析（analyzer）** → 指標算出 → 結果・イベント・状態を DB へ → 終了。
 - 重く壊れやすい解析ライブラリ（LIEF 等）はプロセッサ側にのみ存在。
 - **1ジョブ＝1プロセスなので、細工ファイルで segfault してもプロセッサ1個が死ぬだけ**（ディスパッチャは生存）。
+- **永続化・状態遷移・イベントログは全てプロセッサに集約**（analyzer は DB を触らない＝下記）。
+
+#### analyzer（解析器）インターフェース — 純粋関数 + sniff + レジストリ
+- 各 analyzer は **`path（CAS）＋メタ → 構造化結果（Pydantic）` の純粋関数**。**DB は触らない**。
+  → fixture 入力に対し pytest で直接検証でき、防御的パースの隔離もしやすい。
+- 各 analyzer は **`sniff(path) -> bool`（自分が扱えるか）を自分の native lib で判定**する。
+  - 例：PE analyzer の `sniff` = **`lief.is_pe(path)`**（自前マジックバイトは作らない）。
+- プロセッサは **レジストリ（dispatch table）** で各 analyzer の `sniff` を試して担当を決める。
+  **LNK / Office は「レジストリに 1 行追加」で挿す**＝既存を作り直さない（進化的設計）。
+- 解析項目の段階追加（ヘッダ→セクション→imports/exports→リソース→署名）は **PE analyzer 内部の話**で、
+  インターフェースは不変。結果は `detail_data`(JSON) を版（`result_schema_version`）で進化させる。
+- 細かい進捗 `current_phase` 表示用に、analyzer に任意の `report(phase, message)` コールバックを渡せる口を用意
+  （初期は粗く「PE 解析中」で可、細分化は後）。
+
+#### 種別判定（Basic 層）— 表示ラベルとルーティングを分離
+- **種別判定は全検体に対し常に走る Basic 情報**（形式非依存）。結果は Specimen の**列**に持つ
+  （`file_type`＝我々の正準カテゴリ、`magika_type`/`libmagic_type`＝各検出器の素の出力）。
+- **magika（主）/ python-magic=libmagic（従）の両方を記録**し、フロントで両方そのまま表示。
+  **ラベル不一致（例：magika=PE なのに拡張子 .pdf）を"なりすまし"のトリアージ signal** として
+  列比較で表示時に導出する（フラグは保存しない）。
+- **どの analyzer を起動するかのルーティングは検出器に丸投げしない**。各 analyzer の `sniff`
+  （native パーサが「読めた」こと）で確定する。**ラベル付けとルーティング根拠を分離**。
+- 注意：**python-magic は Windows ネイティブで不安定** → ssdeep 同様 **Linux worker コンテナ前提**。
+  worker イメージに `libmagic1`(apt) を入れる（magika は onnxruntime 同梱で apt 依存ほぼ無し）。
 
 ### ブローカー（Valkey Stream / Consumer Group）
 - 受付とディスパッチャをつなぐ配管。ジョブは言語中立な JSON。
@@ -85,6 +109,18 @@ Web アプリ。マルウェア解析・トリアージ用途を意識した「�
   子の終了コード／タイムアウトを見て Item を Error に終端化して継続。防御的パース（サイズ上限・
   タイムアウト・メモリ上限）とセット。
 
+### 防御的パースの 5 層（どの層が何を担保するか）
+
+入力は全て敵性（細工ファイルでパーサが暴走・クラッシュし得る）前提。担保を層で分離する。
+
+| 層 | 担保するもの | 置き場 | 状態 |
+|---|---|---|---|
+| 1 | **wall-clock タイムアウト**（暴走の打ち切り） | ディスパッチャ（`subprocess.run(timeout=config.processor_timeout)`） | 実装済み |
+| 2 | **segfault / 異常終了の隔離** | 1ジョブ=1プロセス（returncode≠0 → `_mark_error`） | 実装済み |
+| 3 | **メモリ上限** | プロセッサ起動時に `resource.setrlimit(RLIMIT_AS)`（Linux のみ／Windows は no-op） | 未実装（Phase1） |
+| 4 | **入力サイズ上限** | 受付(API) のアップロード上限（nginx 暫定 100m と整合）＋ analyzer 入口で再チェックの二重 | 未実装（Phase1） |
+| 5 | **壊れた構造への耐性** | analyzer 内部の防御コーディング（例外で止め、**部分結果＋warn イベント**を返す） | analyzer 実装時 |
+
 ## セキュリティ方針
 
 - **絶対に実行・展開しない**：PE 実行しない／LNK のターゲットを解決しに行かない／VBA は取り出すだけ／
@@ -99,7 +135,7 @@ Web アプリ。マルウェア解析・トリアージ用途を意識した「�
 | 区分 | 採用 |
 |---|---|
 | 受付 API | FastAPI（Phase2 で Fastify(Node) を追加） |
-| 解析（dispatcher / processor） | Python（LIEF / pefile / oletools / LnkParse3 / yara-python 等） |
+| 解析（dispatcher / processor） | Python。PE=**LIEF（主）**／種別判定=**magika（主）+ python-magic（従）**／Office=oletools／LNK=LnkParse3／YARA=yara-python 等。pefile は直接依存にしない（imphash も LIEF で。dotnetfile 経由で .NET 対応時に推移的に入る） |
 | ブローカー | Valkey（Redis 互換）Stream |
 | RDBMS | SQLite → PostgreSQL（SQLAlchemy + Alembic） |
 | 検体ストレージ | 内容アドレス（SHA256）ファイル保管 |

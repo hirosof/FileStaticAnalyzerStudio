@@ -25,7 +25,10 @@ FileStaticAnalyzerStudio/
 │  │  ├─ api/                         #     FastAPI アプリ（受付）         ← uvicorn fsas.api.app:app
 │  │  ├─ dispatcher/                  #     常駐ディスパッチャ(supervisor)  ← python -m fsas.dispatcher.entry
 │  │  ├─ processor/                   #     1ジョブ=1サブプロセスの実処理    ← python -m fsas.processor.entry
-│  │  └─ analyzers/                   #     解析器（PE→LNK→Office…）後で増える
+│  │  └─ analyzers/                   #     解析器＋種別判定＋レジストリ（PE→LNK→Office…）後で増える
+│  │     ├─ registry.py               #       sniff で担当 analyzer を選ぶ dispatch table
+│  │     ├─ detect.py                 #       種別判定（magika 主 / libmagic 従）= Basic 層
+│  │     └─ pe.py                     #       PE analyzer（LIEF）。純粋関数 + sniff(=lief.is_pe)
 │  └─ tests/
 ├─ frontend/                          # Vue SPA（Vite + PrimeVue）
 │  ├─ Dockerfile                      #   多段：deps / dev(Vite) / build / prod(nginx)
@@ -63,7 +66,11 @@ FileStaticAnalyzerStudio/
   タイムアウトを見て Item を Error 化）。
 - **src レイアウト＋ `package-mode=true`**。コンテナでは `PYTHONPATH=/app/src` で import（prod=COPY／dev=bind-mount のどちらでも同形）。
 - **解析ライブラリの依存分離**（poetry の optional group 等）は可逆なため未着手。必要になってから追加で対応。
-  ※ ssdeep / pyimpfuzzy は Windows ネイティブでビルド不可だが、**Linux コンテナ（worker）で `libfuzzy-dev` を入れれば解禁**。
+  ※ PE は **LIEF を主**とし、**pefile は直接依存にしない**（imphash も LIEF の
+  `get_imphash(..., IMPHASH_MODE.PEFILE)` で。pefile は dotnetfile 経由で .NET 対応時に推移的に入る）。
+- **解析・種別判定の実行は Linux worker コンテナ前提**。worker イメージ（apt）に次を入れる：
+  - `libfuzzy-dev` … ssdeep / pyimpfuzzy（Windows ネイティブはビルド不可、ここで解禁）
+  - `libmagic1` … python-magic(libmagic)（Windows ネイティブは不安定。magika は onnxruntime 同梱で apt 依存ほぼ無し）
 
 ## 設定（config）
 
