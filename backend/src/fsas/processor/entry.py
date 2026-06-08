@@ -9,7 +9,13 @@ from fsas.db.engine import SessionLocal
 from fsas.models import AnalysisRequestItem, JobEvent, SpecimenInformation
 from fsas.storage import storage
 
-import sys
+import zlib
+import tlsh
+import ppdeep
+
+from fsas.analyzers.detect import detect
+from fsas.analyzers.registry import select_analyzer, RESULT_SCHEMA_VERSION
+
 import argparse
 
 def _now() -> datetime:
@@ -22,15 +28,17 @@ def log_event(db: Session, request_item_id: str, message: str,
     db.commit()
 
 
-def hash_file(path: Path) -> tuple[str, int]:
-    sha = hashlib.sha256()
-    size = 0
-    with open(path, "rb") as f:
-        while chunk := f.read(1024 * 1024):  # 1MiB ずつ（ストリーミングハッシュ）
-            size += len(chunk)
-            sha.update(chunk)
-    return sha.hexdigest(), size
-
+def compute_hashes(data: bytes) -> dict:
+    th = tlsh.hash(data)
+    return {
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "md5": hashlib.md5(data).hexdigest(),
+        "sha1": hashlib.sha1(data).hexdigest(),
+        "crc32": format(zlib.crc32(data) & 0xFFFFFFFF, "08x"),  # 32bit を 16進8桁
+        "ssdeep": ppdeep.hash(data) or None,
+        "tlsh": None if th == "TNULL" else th,                  # 小/低エントロピーは null
+    }
 
 def process(request_item_id: str):
     with SessionLocal() as db:
@@ -51,8 +59,11 @@ def process(request_item_id: str):
             db.commit()
             log_event(db, item.request_item_id, "解析開始", phase="ハッシュ算出中")
 
-            # 2) ステージングを読んで SHA256 + サイズ（Phase0 の“解析”はこれだけ）
-            sha256, size = hash_file(storage.staged_path(item.request_item_id))
+            # 2) ステージングを 1 回読み、Basic ハッシュ群を算出
+            #    ※ 全読み込み。サイズ上限ガードは後段の防御的パース段階で追加（今は安全な自作検体前提）
+            data = storage.staged_path(item.request_item_id).read_bytes()
+            h = compute_hashes(data)
+            sha256 = h["sha256"]
 
             # 3) 内容アドレスへ昇格（重複なら破棄して既存を使う）
             storage.promote(item.request_item_id, sha256)
@@ -62,12 +73,47 @@ def process(request_item_id: str):
                 select(SpecimenInformation).where(SpecimenInformation.sha256 == sha256)
             )
             if spec is None:
+                # 種別判定（Basic）
+                item.current_phase = "種別判定中"
+                db.commit()
+                log_event(db, item.request_item_id, "種別判定中", phase="種別判定中")
+                td = detect(data)
+
+                # 形式別解析：registry の sniff で担当 analyzer を決定
+                cas_path = storage.content_path(sha256)
+                file_type = "Other"
+                detail_data = None
+                has_detail = False
+                analyzer = select_analyzer(cas_path)
+                if analyzer is not None:
+                    file_type = analyzer.file_type  # sniff が通った＝正準カテゴリ確定
+                    item.current_phase = f"{file_type} 解析中"
+                    db.commit()
+                    log_event(db, item.request_item_id, f"{file_type} 解析中", phase=f"{file_type} 解析中")
+                    try:
+                        detail = analyzer.analyze(cas_path)
+                        detail_data = {"result_schema_version": RESULT_SCHEMA_VERSION,
+                                       analyzer.result_key: detail}
+                        has_detail = True
+                    except Exception as e:
+                        # 壊れた構造でも Basic は活かす（部分結果＋warn・防御的パース層5）
+                        log_event(db, item.request_item_id,
+                                  f"{file_type} 解析失敗（Basic のみ保存）: {e}",
+                                  level="warn", phase=f"{file_type} 解析中")
+
                 spec = SpecimenInformation(
-                    sha256=sha256, size=size, analysis_state="Completed", file_type="Other"
+                    sha256=sha256, size=h["size"],
+                    md5=h["md5"], sha1=h["sha1"], crc32=h["crc32"],
+                    ssdeep=h["ssdeep"], tlsh=h["tlsh"],
+                    type_detection=td,
+                    file_type=file_type,
+                    detail_data=detail_data,
+                    has_detail_data=has_detail,
+                    analysis_state="Completed",
                 )
                 db.add(spec)
             else:
-                spec.analysis_state = "Completed"
+                spec.analysis_state = "Completed"  # 既存=同一内容、解析済み
             db.commit()
 
             # 5) Item に紐づけて完了
@@ -100,8 +146,6 @@ def entry() -> None:
     parser.add_argument("--request_item_id")
 
     args = parser.parse_args()
-
-#    print(args.request_item_id)
 
     if (args.request_item_id is not None) and (len(args.request_item_id)>0):
         process(request_item_id=args.request_item_id)

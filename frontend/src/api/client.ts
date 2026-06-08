@@ -1,10 +1,43 @@
 const BASE = '/api'
 
+export interface MagikaDetection {
+  label: string
+  score: number
+  mime_type: string
+  group: string
+  description: string
+  is_text: boolean
+  extensions: string[]
+}
+export interface LibmagicDetection {
+  mime: string
+  description: string
+}
+export interface TypeDetection {
+  magika: MagikaDetection | null
+  libmagic: LibmagicDetection | null
+}
+export interface PeDetail {
+  imphash: string | null
+}
+export interface DetailData {
+  result_schema_version: number
+  pe?: PeDetail
+}
+
 export interface SpecimenOut {
   sha256: string
   size: number
   analysis_state: string
   file_type: string
+  md5: string | null
+  sha1: string | null
+  crc32: string | null
+  ssdeep: string | null
+  tlsh: string | null
+  type_detection: TypeDetection | null
+  detail_data: DetailData | null
+  has_detail_data: boolean
 }
 
 export interface ItemStatus {

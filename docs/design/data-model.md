@@ -69,18 +69,16 @@ Tickets（案件/グルーピング）              ※ Phase0 では作らな�
 | created_at | 【動】 | |
 | md5 (32) / sha1 (40) / crc32 | 【P1】 | 暗号学的/チェックサム系ハッシュ（形式非依存） |
 | ssdeep (nullable) / tlsh (nullable) | 【P1】 | **ファジーハッシュ（形式非依存・類似度用）**。ssdeep は `ppdeep`（純Python・ssdeep 互換）、tlsh は `py-tlsh`。TLSH は最小サイズ制限で小検体は null |
-| magika_type (nullable) | 【P1】 | magika が出した種別ラベル/mime を**そのまま**保存（表示用） |
-| magika_score (nullable) | 【P1】 | magika の確信度（任意。表示・トリアージ補助） |
-| libmagic_type (nullable) | 【P1】 | python-magic(libmagic) の mime/記述を**そのまま**保存（表示用） |
+| type_detection (JSON, nullable) | 【P1】 | **種別判定の生結果**（magika: label/score/mime_type/group/description/is_text/extensions ＋ libmagic: mime/description）。Basic 層だが `detail_data` とは別の JSON 列 |
 | detail_data (JSON, nullable) | 【P1】 | **形式固有の詳細結果**（PE のヘッダ/セクション等）。後述スキーマ |
 | has_detail_data (bool, default false) | 【P1】 | false=Basic のみ / true=Detail あり。`detail_data` と同一 Tx で更新 |
 | last_analyze_log_data (nullable) | 【P1】 | 解析の完了サマリ（任意。append-only の `job_events` とは別物） |
 
-> **基本指標（ハッシュ群・種別判定）は列、形式固有の詳細は JSON（`detail_data`）** のハイブリッド。
-> 種別判定は形式非依存の Basic 情報なので、`detail_data` ではなく列に置く（ハッシュ群と同じ並び）。
-> **magika と libmagic の両方を素のまま列に持つ**ことで、フロントで両方そのまま表示でき、
-> **不一致（なりすまし）signal は列の比較で表示時に導出**できる（フラグは保存せず陳腐化を避ける）。
-> 列名・`magika_score`/追加 mime 列の最終形は実装時に微調整しうる（型・nullable 方針は不変）。
+> **ハッシュ群・正準カテゴリ(`file_type`)は列／検出器の生結果(`type_detection`)と形式固有の詳細(`detail_data`)は JSON** のハイブリッド。
+> 種別判定は形式非依存の Basic 情報なので、形式固有の `detail_data` とは**別の Basic JSON 列 `type_detection`** に置く。
+> **magika と libmagic の生結果を丸ごと JSON に持つ**ことで（label/score/mime/group/description/extensions 等）、
+> フロントで全項目を表示でき、**不一致（なりすまし）signal は JSON 内の比較で表示時に導出**できる（フラグは保存せず陳腐化を避ける）。
+> 将来クエリ要件が出たら正規化列を**追加**（JSON が真実の源）。
 > 列追加は nullable で行い、既存行の backfill 不要（Alembic 差分マイグレ）。
 
 ### `job_events`（ジョブイベントログ＝append-only）
@@ -95,7 +93,7 @@ Tickets（案件/グルーピング）              ※ Phase0 では作らな�
 
 ## 解析結果スキーマ（`detail_data` / `has_detail_data`）
 
-- **Basic（形式非依存）= 列**：`size / md5 / sha1 / crc32 / ssdeep / tlsh / file_type / magika_type / libmagic_type`。
+- **Basic（形式非依存）**：列 `size / md5 / sha1 / crc32 / ssdeep / tlsh / file_type` ＋ JSON 列 `type_detection`。
   形式に依らず取れる（ssdeep/tlsh はファジーハッシュ。tlsh は最小サイズ制限で null になり得る）。
   `has_detail_data=false` でもここまでは埋まる。
 - **Detail（形式固有）= `detail_data`(JSON)**：PE のヘッダ/セクション等。埋めたら `has_detail_data=true`。
@@ -123,7 +121,7 @@ Tickets（案件/グルーピング）              ※ Phase0 では作らな�
 }
 ```
 
-> 種別判定（magika / libmagic）の結果は **`detail_data` に含めず列に持つ**（上記 specimen テーブル参照）。
+> 種別判定（magika / libmagic）の結果は **`detail_data` に含めず、別の Basic JSON 列 `type_detection` に持つ**（上記 specimen テーブル参照）。
 
 ## 状態の二層化
 

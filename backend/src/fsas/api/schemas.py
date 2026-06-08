@@ -10,7 +10,16 @@ class SpecimenOut(BaseModel):
     size: int
     analysis_state: str
     file_type: str
-
+    # Phase1: Basic ハッシュ群
+    md5: str | None = None
+    sha1: str | None = None
+    crc32: str | None = None
+    ssdeep: str | None = None
+    tlsh: str | None = None
+    # Phase1: 種別判定（生結果 JSON）＋ 形式固有の詳細（JSON）
+    type_detection: dict | None = None
+    detail_data: dict | None = None
+    has_detail_data: bool = False
 
 class ItemStatusOut(BaseModel):
     request_item_id: str

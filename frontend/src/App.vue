@@ -92,6 +92,41 @@ async function onUpload(event: FileUploadUploaderEvent) {
         <p><strong>サイズ：</strong>{{ status.specimen.size }} bytes</p>
         <p><strong>種別：</strong>{{ status.specimen.file_type }}</p>
         <p><strong>検体の解析状態：</strong>{{ status.specimen.analysis_state }}</p>
+
+        <h3 style="margin-top: 1rem">ハッシュ</h3>
+        <p v-if="status.specimen.md5">
+          <strong>MD5：</strong><code>{{ status.specimen.md5 }}</code>
+        </p>
+        <p v-if="status.specimen.sha1">
+          <strong>SHA1：</strong><code>{{ status.specimen.sha1 }}</code>
+        </p>
+        <p v-if="status.specimen.crc32">
+          <strong>CRC32：</strong><code>{{ status.specimen.crc32 }}</code>
+        </p>
+        <p v-if="status.specimen.ssdeep">
+          <strong>ssdeep：</strong><code>{{ status.specimen.ssdeep }}</code>
+        </p>
+        <p v-if="status.specimen.tlsh">
+          <strong>TLSH：</strong><code>{{ status.specimen.tlsh }}</code>
+        </p>
+
+        <h3 style="margin-top: 1rem">種別判定</h3>
+        <p v-if="status.specimen.type_detection?.magika">
+          <strong>magika：</strong>{{ status.specimen.type_detection.magika.label }} （{{
+            (status.specimen.type_detection.magika.score * 100).toFixed(1)
+          }}%） — {{ status.specimen.type_detection.magika.description }}
+        </p>
+        <p v-if="status.specimen.type_detection?.libmagic">
+          <strong>libmagic：</strong>{{ status.specimen.type_detection.libmagic.mime }} —
+          {{ status.specimen.type_detection.libmagic.description }}
+        </p>
+
+        <div v-if="status.specimen.has_detail_data && status.specimen.detail_data?.pe">
+          <h3 style="margin-top: 1rem">PE 詳細</h3>
+          <p>
+            <strong>imphash：</strong><code>{{ status.specimen.detail_data.pe.imphash }}</code>
+          </p>
+        </div>
       </div>
 
       <h3 style="margin-top: 1.5rem">イベントログ</h3>

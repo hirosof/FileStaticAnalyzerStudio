@@ -68,9 +68,9 @@ Web アプリ。マルウェア解析・トリアージ用途を意識した「�
   （初期は粗く「PE 解析中」で可、細分化は後）。
 
 #### 種別判定（Basic 層）— 表示ラベルとルーティングを分離
-- **種別判定は全検体に対し常に走る Basic 情報**（形式非依存）。結果は Specimen の**列**に持つ
-  （`file_type`＝我々の正準カテゴリ、`magika_type`/`libmagic_type`＝各検出器の素の出力）。
-- **magika（主）/ python-magic=libmagic（従）の両方を記録**し、フロントで両方そのまま表示。
+- **種別判定は全検体に対し常に走る Basic 情報**（形式非依存）。`file_type`（正準カテゴリ）は列、
+  検出器の生結果は **Basic JSON 列 `type_detection`**（`detail_data` とは別）に持つ。
+- **magika（主）/ python-magic=libmagic（従）の生結果を丸ごと記録**し（label/score/mime/group/description 等）、フロントで両方そのまま表示。
   **ラベル不一致（例：magika=PE なのに拡張子 .pdf）を"なりすまし"のトリアージ signal** として
   列比較で表示時に導出する（フラグは保存しない）。
 - **どの analyzer を起動するかのルーティングは検出器に丸投げしない**。各 analyzer の `sniff`
