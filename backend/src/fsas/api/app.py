@@ -11,7 +11,6 @@ from fsas.queue import enqueue
 from fsas.storage import storage
 from fastapi.middleware.cors import CORSMiddleware
 
-
 app = FastAPI(title="FileStaticAnalyzerStudio API")
 
 # Viteのdevサーバーからの接続を許可する

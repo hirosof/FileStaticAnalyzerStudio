@@ -1,0 +1,27 @@
+services:
+  api:
+    volumes:
+      - ../backend:/app            # ソースを bind-mount（specimens は base 側で /app/data に乗る）
+    command: ["uvicorn", "fsas.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"   # Windows bind-mount でリロードを効かせる
+
+  dispatcher:
+    volumes:
+      - ../backend:/app
+    command: ["watchfiles", "python -m fsas.dispatcher.entry", "/app/src"]  # コード変更で自動再起動
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+
+  frontend:
+    build:
+      target: dev                  # nginx ではなく Vite dev サーバ段
+    command: ["npm", "run", "dev", "--", "--host"]
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules          # コンテナ内 node_modules を温存
+    ports:
+      - "5173:5173"
+    environment:
+      FSAS_API_TARGET: "http://api:8000"   # Vite プロキシ先（compose ネットワーク内）
+      CHOKIDAR_USEPOLLING: "true"          # HMR のファイル監視（Windows）
