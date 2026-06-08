@@ -21,6 +21,9 @@ dependencies = [
     "python-magic (>=0.4.27,<0.5.0)",
     "py-tlsh (>=5.0.0,<6.0.0)",
     "ppdeep (>=20260221,<20260222)",
+    "lnkparse3 (>=1.6.0,<2.0.0)",
+    "oletools (>=0.60.2,<0.61.0)",
+    "dotnetfile (>=0.2.10,<0.3.0)",
 ]
 
 [tool.poetry]
