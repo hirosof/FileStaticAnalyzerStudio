@@ -68,7 +68,7 @@ Tickets（案件/グルーピング）              ※ Phase0 では作らな�
 | file_type (default "Other") | 【動】 | **我々の正準カテゴリ** PE/LNK/Office/Other。ルーティング/グルーピング/ロジック用 |
 | created_at | 【動】 | |
 | md5 (32) / sha1 (40) / crc32 | 【P1】 | 暗号学的/チェックサム系ハッシュ（形式非依存） |
-| ssdeep (nullable) / tlsh (nullable) | 【P1】 | **ファジーハッシュ（形式非依存・類似度用）**。Linux worker で算出。TLSH は最小サイズ制限で小検体は null |
+| ssdeep (nullable) / tlsh (nullable) | 【P1】 | **ファジーハッシュ（形式非依存・類似度用）**。ssdeep は `ppdeep`（純Python・ssdeep 互換）、tlsh は `py-tlsh`。TLSH は最小サイズ制限で小検体は null |
 | magika_type (nullable) | 【P1】 | magika が出した種別ラベル/mime を**そのまま**保存（表示用） |
 | magika_score (nullable) | 【P1】 | magika の確信度（任意。表示・トリアージ補助） |
 | libmagic_type (nullable) | 【P1】 | python-magic(libmagic) の mime/記述を**そのまま**保存（表示用） |

@@ -75,8 +75,9 @@ Web アプリ。マルウェア解析・トリアージ用途を意識した「�
   列比較で表示時に導出する（フラグは保存しない）。
 - **どの analyzer を起動するかのルーティングは検出器に丸投げしない**。各 analyzer の `sniff`
   （native パーサが「読めた」こと）で確定する。**ラベル付けとルーティング根拠を分離**。
-- 注意：**python-magic は Windows ネイティブで不安定** → ssdeep 同様 **Linux worker コンテナ前提**。
-  worker イメージに `libmagic1`(apt) を入れる（magika は onnxruntime 同梱で apt 依存ほぼ無し）。
+- 注意：**python-magic は Windows ネイティブで不安定**（libmagic 依存）→ **Linux worker コンテナで実行**。
+  worker イメージの apt は `libmagic1`（python-magic 実行時）＋ `build-essential`（`py-tlsh` 等が cp314 wheel
+  未提供でソースビルドするため）。ファジー ssdeep は純 Python の `ppdeep` 採用で **`libfuzzy-dev` は不要**。
 
 ### ブローカー（Valkey Stream / Consumer Group）
 - 受付とディスパッチャをつなぐ配管。ジョブは言語中立な JSON。

@@ -8,6 +8,17 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+
+# 解析ライブラリの native 依存：
+#   libmagic1   … python-magic(libmagic) の実行時依存（種別判定）
+#   libfuzzy-dev … ssdeep のビルド＆実行時依存（ファジーハッシュ）
+#   build-essential … ssdeep のソースビルド用コンパイラ（python:slim には無い）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+#        libfuzzy-dev \
+        libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # poetry はビルド時のみ使用
 RUN pip install poetry
 

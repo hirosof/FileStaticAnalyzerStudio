@@ -68,9 +68,12 @@ FileStaticAnalyzerStudio/
 - **解析ライブラリの依存分離**（poetry の optional group 等）は可逆なため未着手。必要になってから追加で対応。
   ※ PE は **LIEF を主**とし、**pefile は直接依存にしない**（imphash も LIEF の
   `get_imphash(..., IMPHASH_MODE.PEFILE)` で。pefile は dotnetfile 経由で .NET 対応時に推移的に入る）。
-- **解析・種別判定の実行は Linux worker コンテナ前提**。worker イメージ（apt）に次を入れる：
-  - `libfuzzy-dev` … ssdeep / pyimpfuzzy（Windows ネイティブはビルド不可、ここで解禁）
-  - `libmagic1` … python-magic(libmagic)（Windows ネイティブは不安定。magika は onnxruntime 同梱で apt 依存ほぼ無し）
+- **ファジーハッシュ ssdeep は純 Python の `ppdeep` を採用**（ssdeep 互換ダイジェスト）。ネイティブ
+  ssdeep（3.4）は py3.14 でビルド不可（`pkg_resources` 撤去）だったため。これで **`libfuzzy-dev` は不要**。
+- **解析の実行は worker（Linux コンテナ）**。worker イメージ（apt）に必要なのは：
+  - `build-essential` … `py-tlsh` 等が cp314 wheel 未提供でソースビルドするため（将来 wheel 提供 or
+    マルチステージ化で外せる）
+  - `libmagic1` … python-magic(libmagic) の実行時依存（magika は onnxruntime 同梱で apt 依存ほぼ無し）
 
 ## 設定（config）
 
