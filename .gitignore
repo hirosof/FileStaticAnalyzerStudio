@@ -818,3 +818,7 @@ backend/data/
 
 # tempフォルダを除外
 temp/
+
+# PEファイルを除外
+*.exe
+*.dll
