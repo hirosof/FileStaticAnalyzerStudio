@@ -103,5 +103,21 @@ Web アプリ。マルウェア解析・トリアージ用途を意識した「�
 | ブローカー | Valkey（Redis 互換）Stream |
 | RDBMS | SQLite → PostgreSQL（SQLAlchemy + Alembic） |
 | 検体ストレージ | 内容アドレス（SHA256）ファイル保管 |
-| フロント | Vue（Vite）SPA |
-| コンテナ | Podman / Docker（compose） |
+| フロント | Vue（Vite + PrimeVue）SPA |
+| コンテナ | Docker（Compose・dev/prod 出し分け） |
+
+---
+
+## 設定・実行構成
+
+### 設定（config）
+- 非秘密は **TOML**（`config.toml`＝開発／`config.docker.toml`＝compose。`FSAS_CONFIG_FILE` で選択、既定 `config.toml`）。
+- **秘密のみ環境変数**（`FSAS_DB_USER` / `FSAS_DB_PASSWORD`）。TOML には書かない。
+- `config_store.py` が集約し、`engine` / `storage` / `queue` / `dispatcher` はそこを参照。
+- DB は **SQLite / PostgreSQL 両対応**（接続文字列で切替。dev=SQLite 可、compose=PostgreSQL）。
+
+### 実行（Docker Compose・dev/prod）
+- **prod**：`docker compose -f compose.yaml up` → nginx(:8080) が静的配信＋`/api` 逆プロキシ。ビルド済みイメージ。
+- **dev**：`docker compose up`（`compose.override.yaml` 自動マージ）→ 全サービスをコンテナ内で起動し、
+  ソース bind-mount＋ホットリロード（api=`uvicorn --reload` / dispatcher=`watchfiles` / frontend=Vite HMR、URL は :5173）。
+- 同一ソースで配信方式（Vite or nginx）だけ切替。どちらも `/api` 同一オリジン経由＝**CORS 不要**。
